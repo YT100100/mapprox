@@ -1,0 +1,15 @@
+Package: mapprox
+Type: Package
+Title: Linear interpolation of gridded data (multivariable approx)
+Version: 0.0.0.9000
+Authors@R: person("TODA", "Yusuke", email = "yusuke0320.research@gmail.com", role = c("aut", "cre"))
+Description: This package provides the function mapprox(), 
+    an extension of the basic approx() function. 
+    It is designed to handle cases where 
+    two or more explanatory variables are used in the interpolated function. 
+    However, the values of the explanatory variables in the source data 
+    must be on a grid; that is, the data provided as x must cover 
+    all combinations of the values of the explanatory variables.
+License: GPL-3.0
+Encoding: UTF-8
+LazyData: true
