@@ -38,8 +38,7 @@ extract_gridded_x <- function(x) {
     x_now <- x[!should_be_omitted, , drop = FALSE]
 
   }
-
-  return(!should_be_omitted)
+  !should_be_omitted
 
 }
 
@@ -76,7 +75,29 @@ detect_duplicated_x <- function(x) {
     duplication_id[sel_i] <- i
 
   }
+  duplication_id
 
-  return(duplication_id)
+}
+
+remove_duplicated_data <- function(x, y, duplication_id) {
+
+  # Example 1: Two duplicated value
+  # x <- expand.grid(V1 = 11:15, V2 = 101:105)
+  # x <- rbind(data.frame(V1 = 11, V2 = 101), x, data.frame(V1 = 15, V2 = 105))
+  # y <- with(x, V1 + V2)
+  # duplication_id <- detect_duplicated_x(x)
+
+  dropped <- rep(FALSE, nrow(x))
+  id_uniq <- unique(duplication_id[!is.na(duplication_id)])
+  for (id in id_uniq) {
+
+    id_index <- which(duplication_id == id)
+    y[id_index[1]] <- mean(y[id_index])
+    dropped[id_index[-1]] <- TRUE
+
+  }
+  x <- x[!dropped, , drop = FALSE]
+  y <- y[!dropped]
+  list(x = x, y = y)
 
 }

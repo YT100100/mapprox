@@ -4,11 +4,13 @@
 \alias{mapprox}
 \title{Linear interpolation of a multivariable function.}
 \usage{
-mapprox(x, y, xout, rule = 1)
+mapprox(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{x}{Reference data of explanatory variables.
-This must be a vector, matrix or data frame in which elements are all numeric.}
+This must be either a matrix or data frame
+in which elements are all numeric.
+A vector is also allowed in an univariable case.}
 
 \item{y}{Reference data of a target variable.
 This must be a numeric vector with length \code{nrow(x)}.}
@@ -24,29 +26,86 @@ If \code{rule = 1}, \code{NA}s are returned for such points.
 If \code{rule = 2}, the values at the closest points in the region
 given as the reference data are returned.
 If \code{rule = 3}, linear extension of the interpolated result is applied.}
+
+\item{use_cpp}{Logical. Do you use C++ for faster calculation?}
+
+\item{verbose}{Logical. Should progress of the process printed?}
 }
 \value{
-A list with components \code{x} and \code{y}.
-  The element \code{x} is identical to input \code{xout},
-  if its all rows are allowed as appropriate input.
-  The element \code{y} is a numeric vector with length \code{nrow(xout)},
+A list with components \code{x}, \code{y}, \code{yout}.
+  The elements \code{x} and \code{y} are identical to
+  input \code{x} and \code{y}, respectively,
+  if all data are allowed as appropriate input.
+  Otherwise, they are subsets of input reference data
+  without irregular values (NA, non-gridded values, and duplicated values).
+  The element \code{yout} is a numeric vector with length \code{nrow(xout)}
   containing interpolated results.
 }
 \description{
 \code{mapprox} is an extension of \code{approx} to deal with multivariable x.
 }
 \examples{
-# An example of one variable: comparison with approx().
-x <- 1:10
-y <- c(1:3, 8:10, 7:4)
-xout <- seq(0, 11, 0.2)
-res_approx <- approx(x, y, xout, method = 'linear', rule = 2)
-res_mapprox <- mapprox(x, y, xout, rule = 2)
-plot(res_approx, pch = 16, cex = 0.5)
-points(res_mapprox)
-points(x, y, pch = 1, cex = 2)
-# legend()
+# Example 1. A one-variable case: comparison with approx().
+x1 <- 1:10
+y1 <- c(1:3, 8:10, 7:4)
+xout1 <- seq(0, 11, 0.2)
+res1_approx <- approx(x1, y1, xout1, method = 'linear', rule = 2)
+res1_mapprox <- mapprox(x1, y1, xout1, rule = 2)
+plot(res1_approx, pch = 16, cex = 0.5, xlab = 'x', ylab = 'y')
+points(xout1, res1_mapprox$yout)
+points(x1, y1, pch = 16, cex = 2, col = rgb(1, 0, 0, 0.2))
+legend('topleft', legend = c('Data', 'approx', 'mapprox'),
+       col = c(rgb(1, 0, 0, 0.2), 'black', 'black'),
+       pch = c(16, 16, 1), pt.cex = c(2, 1, 1))
 
+# Example 2. A two-variable case.
+x2 <- expand.grid(V1 = 11:15, V2 = 101:103)
+y2 <- with(x2, (V1 - 11.5) ^ 2 + V2 * 5)
+plot(x2$V1, y2, col = x2$V2 - 100, pch = 16, xlab = 'V1',
+     xlim = c(11, 16), ylim = c(min(y2), 530))
+legend('topleft', legend = paste0('V2=', 101:103),
+       col = 1:3, pch = 16, ncol = 3)
+res2 <- mapprox(x2, y2, xout2, rule = 2)
+points(xout2$V1, res2$yout, col = ifelse(xout2$V2 == 101.5, 4, 5),
+       pch = 16, cex = 0.4)
+legend('bottomright', legend = paste0('V2=', c(101.5, 102.8)),
+       col = 4:5, pch = 16, ncol = 2)
+
+# Example 3. Treatment of NA, non-gridded values, and duplicated values.
+x3 <- expand.grid(V1 = 11:15, V2 = 101:103) # correct data format
+y3 <- with(x3, (V1 - 12) ^ 2 + V2 * 5)
+x3 <- rbind(x3,
+            data.frame(V1 = NA, V2 = 103), # NA in x
+            data.frame(V1 = 16, V2 = 103), # non-gridded value
+            data.frame(V1 = 14, V2 = 103), # duplicated value
+            data.frame(V1 = 12, V2 = 103)) # NA in y
+y3 <- c(y3, 500, 531, 525, NA)
+plot(x3$V1, y3, col = x3$V2 - 100, pch = 16, xlab = 'V1')
+legend('topleft', legend = paste0('V2=', 101:103),
+       col = 1:3, pch = 16, ncol = 3)
+xout3 <- expand.grid(V1 = seq(11, 16, 0.1), V2 = 101:103)
+res3 <- mapprox(x3, y3, xout3, rule = 2) # Three warnings
+res3$x
+res3$y
+points(xout3$V1, res3$yout, col = xout3$V2 - 100, pch = 16, cex = 0.4)
+# NA and non-gridded data are ignored and duplicated data are averaged
+
+# Example 4. Comparison of rules.
+x4 <- expand.grid(V1 = 11:14, V2 = 101:102)
+y4 <- with(x4, (V1 - 11.5) ^ 2 + V2 * 5)
+xout4 <- expand.grid(V1 = seq(11, 15, 0.1), V2 = 101.5)
+plot(x4$V1, y4, col = x4$V2 - 100, pch = 16, xlab = 'V1',
+     xlim = range(xout4$V1))
+legend('topleft', legend = paste0('V2=', 101:102),
+       col = 1:2, pch = 16, ncol = 2)
+res4_1 <- mapprox(x4, y4, xout4, rule = 1)
+res4_2 <- mapprox(x4, y4, xout4, rule = 2)
+res4_3 <- mapprox(x4, y4, xout4, rule = 3)
+points(xout4$V1, res4_1$yout, col = 3, pch = 3, cex = 2)
+points(xout4$V1, res4_2$yout, col = 4, pch = 15)
+points(xout4$V1, res4_3$yout, col = 5, pch = 16)
+legend('bottomright', legend = paste0('rule=', 1:3),
+       col = 3:5, pch = c(3, 15, 16), ncol = 3)
 
 }
 \seealso{
