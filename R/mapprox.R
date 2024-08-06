@@ -54,7 +54,7 @@
 #'      xlim = c(11, 16), ylim = c(min(y2), 530))
 #' legend('topleft', legend = paste0('V2=', 101:103),
 #'        col = 1:3, pch = 16, ncol = 3)
-# xout2 <- expand.grid(V1 = seq(11, 16, 0.1), V2 = c(101.5, 102.8))
+#' xout2 <- expand.grid(V1 = seq(11, 16, 0.1), V2 = c(101.5, 102.8))
 #' res2 <- mapprox(x2, y2, xout2, rule = 2)
 #' points(xout2$V1, res2$yout, col = ifelse(xout2$V2 == 101.5, 4, 5),
 #'        pch = 16, cex = 0.4)
@@ -98,7 +98,7 @@
 #'        col = 3:5, pch = c(3, 15, 16), ncol = 3)
 #'
 
-mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
+mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
 
   # Example 1: One variable
   # x <- 1:10
@@ -108,7 +108,11 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
   # use_cpp <- FALSE
   # verbose <- TRUE
 
+
   # Checking arguments ---------------------------------------------------------
+  t1 <- proc.time()[3]
+  if (verbose) cat('Step 1/4: Checking inputs... ')
+
   # Checking `x`
   if (!(is.vector(x) || is.matrix(x) || is.data.frame(x))) {
     stop('x must be a vector, matrix, or data frame.')
@@ -148,8 +152,14 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
   if (!is.logical(verbose)) stop('verbose must be logical.')
   if (length(verbose) != 1) stop('verbose must be length 1.')
 
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+  t1 <- t2
+
 
   # Reshaping data -------------------------------------------------------------
+  if (verbose) cat('Step 2/4: Reshaping data...  ')
+
   # Omitting NA
   is_na_x <- rowSums(is.na(x)) > 0
   is_na_y <- is.na(y)
@@ -188,17 +198,18 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
   # Stop the process if no data remained after cleaning
   if (nrow(x) == 0) stop('No data remained after data cleaning.')
 
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+  t1 <- t2
 
 
-  # Interpolation --------------------------------------------------------------
+  # Interpolation (1): Preparation ---------------------------------------------
+  if (verbose) cat('Step 3/4: Preparation...     ')
 
   # Converting x to a list and y to an array
   x_list <- lapply(x, unique)
   y_arr <- tapply(X = y, INDEX = as.list(x), FUN = identity)
   names(dimnames(y_arr)) <- colnames(x)
-
-  # TODO
-  # verbose = TRUEの場合の記述内容を設定する
 
   # When rule = 2, values of xout is replaced with closest value of x
   # if they are out of range of x.
@@ -229,13 +240,23 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
     function(x, i) x[i + 1] - x[i],
     x = x_list, i = as.data.frame(smaller_indices))
 
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+  t1 <- t2
+
+
+  # Interpolation (2): calculation of yout -------------------------------------
+  if (verbose) cat('Step 4/4: Calculating yout...')
+
   # All 0/1 patterns corresponding to each explanatory vairable
   added_indices <- do.call(expand.grid, rep(list(0:1), ncol(x)))
   colnames(added_indices) <- colnames(x)
 
   # Loop for each grid points (x) surrounding xout
   yout <- rep(0, nrow(xout))
-  for (j in seq_len(nrow(added_indices))) {
+  print_progress <- FALSE
+  n_loop <- nrow(added_indices)
+  for (j in seq(n_loop)) {
     # j <- 1
 
     added_index_j <- unlist(added_indices[j, ])
@@ -269,11 +290,25 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
     n_minus_weight_raw_j <- rowSums(sign(weight_raw_not0_j) == -1)
     weight_j[!is_0] <- (-1) ^ (n_minus_weight_raw_j %% 2) * prodabs_weight_raw_j
 
-    # 答えを更新
+    # Renew the answer
     yout <- yout + y_j * weight_j
 
-  }
+    if (!print_progress && verbose && (proc.time()[3] - t1 > 10)) {
+      print_progress <- TRUE
+      cat('\n')
+    }
 
+    if (print_progress) {
+      finish_time <- Sys.time() + (proc.time()[3] - t1) / j * (n_loop - j)
+      cat('\r  Loop ', j, '/', n_loop, ', finish time prediction: ',
+          as.character(round(finish_time)), sep = '')
+    }
+
+  }
+  if (print_progress) cat('\n                             ')
+
+  # If rule = 1, the returned values should be NA
+  # for xout placed out of range of x.
   if (rule == 1) {
     is_out_of_range <- mapply(
       function(x0, xout0) xout0 < min(x0) | xout0 > max(x0),
@@ -281,7 +316,9 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE) {
     yout[rowSums(is_out_of_range) > 0] <- NA
   }
 
-  # if (verbose) cat('Done. (', round(proc.time() - t0, 2)[3], ' s)\n', sep = '')
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+
   list(x = x, y = y, yout = yout)
 
 }
