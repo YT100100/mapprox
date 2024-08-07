@@ -4,7 +4,7 @@
 \alias{mapprox}
 \title{Linear interpolation of a multivariable function.}
 \usage{
-mapprox(x, y, xout, rule = 1, use_cpp = FALSE, verbose = TRUE)
+mapprox(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE)
 }
 \arguments{
 \item{x}{Reference data of explanatory variables.
@@ -17,7 +17,8 @@ This must be a numeric vector with length \code{nrow(x)}.}
 
 \item{xout}{Values of explanatory variables where interpolation is to
 take place. This must be a matrix or data frame and
-\code{ncol(xout)} must be the same as \code{ncol(x)}.}
+\code{ncol(xout)} must be the same as \code{ncol(x)}.
+As for \code{x}, a vector is also allowed in an univariable case.}
 
 \item{rule}{A scalar integer determining how interpolation outside the
 given explanatory variables works. This must be eigher
@@ -65,6 +66,7 @@ plot(x2$V1, y2, col = x2$V2 - 100, pch = 16, xlab = 'V1',
      xlim = c(11, 16), ylim = c(min(y2), 530))
 legend('topleft', legend = paste0('V2=', 101:103),
        col = 1:3, pch = 16, ncol = 3)
+xout2 <- expand.grid(V1 = seq(11, 16, 0.1), V2 = c(101.5, 102.8))
 res2 <- mapprox(x2, y2, xout2, rule = 2)
 points(xout2$V1, res2$yout, col = ifelse(xout2$V2 == 101.5, 4, 5),
        pch = 16, cex = 0.4)

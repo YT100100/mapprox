@@ -1,3 +1,158 @@
+#' Main function of mapprox() in R
+#'
+#' \code{mapprox} is an wrapper of \code{linear_interpolation}.
+#'
+#' This is the main function of \code{mapprox(..., use_cpp = FALSE)}.
+#' Provided data are cleaned beforehand in \code{mapprox} and
+#' then passed to this function.
+#' \code{x} must be completely gridded data,
+#' and duplicated values are not allowed.
+#' Also, no NA in \code{x}, \code{y}, and \code{xout} is allowed.
+#'
+#' @param x Reference data of explanatory variables.
+#'   This must be a data frame in which elements are all numeric.
+#' @param y Reference data of a target variable.
+#'   This must be a numeric vector with length \code{nrow(x)}.
+#' @param xout Values of explanatory variables where interpolation is to
+#'   take place. This must be a data frame and
+#'   \code{ncol(xout)} must be the same as \code{ncol(x)}.
+#' @param rule A scalar integer determining how interpolation outside the
+#'   given explanatory variables works. This must be eigher
+#'   \code{1}, \code{2}, or \code{3}.
+#'   If \code{rule = 1}, \code{NA}s are returned for such points.
+#'   If \code{rule = 2}, the values at the closest points in the region
+#'   given as the reference data are returned.
+#'   If \code{rule = 3}, linear extension of the interpolated result is applied.
+#' @param verbose Logical. Should progress of the process printed?
+#'
+#' @return A numeric vector of interpolated result.
+#'
+#' @seealso [mapprox()]
+
+linear_interpolation <- function(x, y, xout, rule, verbose) {
+
+  # Interpolation (1): Preparation ---------------------------------------------
+  t1 <- proc.time()[3]
+  if (verbose) cat('Step 3/4: Preparation...     ')
+
+  # Converting x to a list and y to an array
+  x_list <- lapply(x, unique)
+  y_arr <- tapply(X = y, INDEX = as.list(x), FUN = identity)
+  names(dimnames(y_arr)) <- colnames(x)
+
+  # When rule = 2, values of xout is replaced with closest value of x
+  # if they are out of range of x.
+  if (rule == 2) {
+    xout <- as.data.frame(mapply(
+      function(x0, xout0) pmax(pmin(xout0, max(x0)), min(x0)),
+      x0 = x_list, xout0 = xout))
+  }
+
+  # Where does each data of xout place? Which grid expanded by x?
+  # An element of `smaller_indices` (i_rc in row r and column c) indicate
+  # that the xout[r, c] is between i_rc_th and (i_rc + 1)_th values of x
+  # (x_list[[c]][i_rc + (0:1)]).
+  smaller_indices <- mapply(function(x, vals) {
+
+    i <- sapply(vals, function(val) sum(val - x >= 0)) # faster
+    # i <- sapply(vals, function(val) which(val - x < 0)[1] - 1) # slower
+
+    # When rule = 3, xout placed out of the region of x are treated
+    # as if they are in the closest grid.
+    pmax(pmin(i, length(x) - 1), 1)
+
+  }, x = x_list, vals = xout)
+  # if (verbose) cat('Done. (', round(proc.time() - t0, 2)[3], ' s)\n', sep = '')
+
+  # Lengths of grids where data points of xout placed
+  region_length <- mapply(
+    function(x, i) x[i + 1] - x[i],
+    x = x_list, i = as.data.frame(smaller_indices))
+
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+  t1 <- t2
+
+
+  # Interpolation (2): calculation of yout -------------------------------------
+  if (verbose) cat('Step 4/4: Calculating yout...')
+
+  # All 0/1 patterns corresponding to each explanatory variable
+  added_indices <- do.call(expand.grid, rep(list(0:1), ncol(x)))
+  colnames(added_indices) <- colnames(x)
+
+  # Loop for each grid points (x) surrounding xout
+  yout <- rep(0, nrow(xout))
+  print_progress <- FALSE
+  n_loop <- nrow(added_indices)
+  for (j in seq(n_loop)) {
+    # j <- 1
+
+    added_index_j <- unlist(added_indices[j, ])
+
+    # y of grid point j
+    y_indices_j <- smaller_indices + added_index_j[col(smaller_indices)]
+    y_j <- y_arr[y_indices_j]
+
+    # components of weights for grid point j
+    rev_added_index_j <- 1 - added_index_j
+    x_rev_indices_j <- smaller_indices + rev_added_index_j[col(smaller_indices)]
+    sign_adjuster_j <- added_index_j * 2 - 1
+    weight_raw_j <- mapply(
+      FUN = function(x, reglen, ref_x, x_rev_ind, sign_adj) {
+        sign_adj * (x - ref_x[x_rev_ind]) / reglen
+      },
+      x         = xout,
+      reglen    = as.data.frame(region_length),
+      ref_x     = x_list,
+      x_rev_ind = as.data.frame(x_rev_indices_j),
+      sign_adj  = sign_adjuster_j)
+
+    # weights for grid point j (slower)
+    # weight_j <- apply(X = weight_raw_j, MARGIN = 1, FUN = prod)
+
+    # weights for grid point j (faster)
+    weight_j <- rep(0, nrow(weight_raw_j))
+    is_0 <- rowSums(weight_raw_j == 0) > 0
+    weight_raw_not0_j <- weight_raw_j[!is_0, , drop = FALSE]
+    prodabs_weight_raw_j <- exp(rowSums(log(abs(weight_raw_not0_j))))
+    n_minus_weight_raw_j <- rowSums(sign(weight_raw_not0_j) == -1)
+    weight_j[!is_0] <- (-1) ^ (n_minus_weight_raw_j %% 2) * prodabs_weight_raw_j
+
+    # Renew the answer
+    yout <- yout + y_j * weight_j
+    Sys.sleep(10)
+
+    if (!print_progress && verbose && (proc.time()[3] - t1 > 10)) {
+      print_progress <- TRUE
+      cat('\n')
+    }
+
+    if (print_progress) {
+      finish_time <- Sys.time() + (proc.time()[3] - t1) / j * (n_loop - j)
+      cat('\r  Loop ', j, '/', n_loop, ', finish time prediction: ',
+          as.character(round(finish_time)), sep = '')
+    }
+
+  }
+  if (print_progress) cat('\n                             ')
+
+  # If rule = 1, the returned values should be NA
+  # for xout placed out of range of x.
+  if (rule == 1) {
+    is_out_of_range <- mapply(
+      function(x0, xout0) xout0 < min(x0) | xout0 > max(x0),
+      x0 = x_list, xout0 = xout)
+    yout[rowSums(is_out_of_range) > 0] <- NA
+  }
+
+  t2 <- proc.time()[3]
+  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+
+  yout
+
+}
+
 #' Linear interpolation of a multivariable function.
 #'
 #' \code{mapprox} is an extension of \code{approx} to deal with multivariable x.
@@ -31,15 +186,17 @@
 #'   The element \code{yout} is a numeric vector with length \code{nrow(xout)}
 #'   containing interpolated results.
 #'
+#' @importFrom Rcpp sourceCpp
+#' @useDynLib mapprox, .registration = TRUE
 #' @seealso [approx()]
 #'
-#' @examples
+#' #' @examples
 #' # Example 1. A one-variable case: comparison with approx().
 #' x1 <- 1:10
 #' y1 <- c(1:3, 8:10, 7:4)
 #' xout1 <- seq(0, 11, 0.2)
 #' res1_approx <- approx(x1, y1, xout1, method = 'linear', rule = 2)
-#' res1_mapprox <- mapprox(x1, y1, xout1, rule = 2)
+#' res1_mapprox <- mapprox(x1, y1, xout1, rule = 2, v=T)
 #' plot(res1_approx, pch = 16, cex = 0.5, xlab = 'x', ylab = 'y')
 #' points(xout1, res1_mapprox$yout)
 #' points(x1, y1, pch = 16, cex = 2, col = rgb(1, 0, 0, 0.2))
@@ -96,7 +253,6 @@
 #' points(xout4$V1, res4_3$yout, col = 5, pch = 16)
 #' legend('bottomright', legend = paste0('rule=', 1:3),
 #'        col = 3:5, pch = c(3, 15, 16), ncol = 3)
-#'
 
 mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
 
@@ -203,121 +359,23 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
   t1 <- t2
 
 
-  # Interpolation (1): Preparation ---------------------------------------------
-  if (verbose) cat('Step 3/4: Preparation...     ')
+  # Interpolation --------------------------------------------------------------
 
-  # Converting x to a list and y to an array
-  x_list <- lapply(x, unique)
-  y_arr <- tapply(X = y, INDEX = as.list(x), FUN = identity)
-  names(dimnames(y_arr)) <- colnames(x)
+  # TODO: ここから別のfunctionにする
+  # TODO: それに伴い、verboseの表示内容も変える
 
-  # When rule = 2, values of xout is replaced with closest value of x
-  # if they are out of range of x.
-  if (rule == 2) {
-    xout <- as.data.frame(mapply(
-      function(x0, xout0) pmax(pmin(xout0, max(x0)), min(x0)),
-      x0 = x_list, xout0 = xout))
+  # TODO: xoutにNAが入っていた場合、それを取り除く
+  # is_na_out <- rowSums(is.na(xout)) > 0
+  # if (all(is_na_out)) stop('All points of xout contain NA.')
+  # yout <- vector(length = nrow(xout))
+  # yout[is_na_out] <- linear_interpolation(
+  #   x, y, xout[is_na_out, , drop = FALSE])
+
+  yout <- if (use_cpp) {
+    linear_interpolation_cpp(x, y, xout, rule, verbose)
+  } else {
+    linear_interpolation(x, y, xout, rule, verbose)
   }
-
-  # Where does each data of xout place? Which grid expanded by x?
-  # An element of `smaller_indices` (i_rc in row r and column c) indicate
-  # that the xout[r, c] is between i_rc_th and (i_rc + 1)_th values of x
-  # (x_list[[c]][i_rc + (0:1)]).
-  smaller_indices <- mapply(function(x, vals) {
-
-    i <- sapply(vals, function(val) sum(val - x >= 0)) # faster
-    # i <- sapply(vals, function(val) which(val - x < 0)[1] - 1) # slower
-
-    # When rule = 3, xout placed out of the region of x are treated
-    # as if they are in the closest grid.
-    pmax(pmin(i, length(x) - 1), 1)
-
-  }, x = x_list, vals = xout)
-  # if (verbose) cat('Done. (', round(proc.time() - t0, 2)[3], ' s)\n', sep = '')
-
-  # Lengths of grids where data points of xout placed
-  region_length <- mapply(
-    function(x, i) x[i + 1] - x[i],
-    x = x_list, i = as.data.frame(smaller_indices))
-
-  t2 <- proc.time()[3]
-  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
-  t1 <- t2
-
-
-  # Interpolation (2): calculation of yout -------------------------------------
-  if (verbose) cat('Step 4/4: Calculating yout...')
-
-  # All 0/1 patterns corresponding to each explanatory vairable
-  added_indices <- do.call(expand.grid, rep(list(0:1), ncol(x)))
-  colnames(added_indices) <- colnames(x)
-
-  # Loop for each grid points (x) surrounding xout
-  yout <- rep(0, nrow(xout))
-  print_progress <- FALSE
-  n_loop <- nrow(added_indices)
-  for (j in seq(n_loop)) {
-    # j <- 1
-
-    added_index_j <- unlist(added_indices[j, ])
-
-    # y of grid point j
-    y_indices_j <- smaller_indices + added_index_j[col(smaller_indices)]
-    y_j <- y_arr[y_indices_j]
-
-    # comonents of weights for grid point j
-    rev_added_index_j <- 1 - added_index_j
-    x_rev_indices_j <- smaller_indices + rev_added_index_j[col(smaller_indices)]
-    sign_adjuster_j <- added_index_j * 2 - 1
-    weight_raw_j <- mapply(
-      FUN = function(x, reglen, ref_x, x_rev_ind, sign_adj) {
-        sign_adj * (x - ref_x[x_rev_ind]) / reglen
-      },
-      x         = xout,
-      reglen    = as.data.frame(region_length),
-      ref_x     = x_list,
-      x_rev_ind = as.data.frame(x_rev_indices_j),
-      sign_adj  = sign_adjuster_j)
-
-    # weights for grid point j (slower)
-    # weight_j <- apply(X = weight_raw_j, MARGIN = 1, FUN = prod)
-
-    # weights for grid point j (faster)
-    weight_j <- rep(0, nrow(weight_raw_j))
-    is_0 <- rowSums(weight_raw_j == 0) > 0
-    weight_raw_not0_j <- weight_raw_j[!is_0, , drop = FALSE]
-    prodabs_weight_raw_j <- exp(rowSums(log(abs(weight_raw_not0_j))))
-    n_minus_weight_raw_j <- rowSums(sign(weight_raw_not0_j) == -1)
-    weight_j[!is_0] <- (-1) ^ (n_minus_weight_raw_j %% 2) * prodabs_weight_raw_j
-
-    # Renew the answer
-    yout <- yout + y_j * weight_j
-
-    if (!print_progress && verbose && (proc.time()[3] - t1 > 10)) {
-      print_progress <- TRUE
-      cat('\n')
-    }
-
-    if (print_progress) {
-      finish_time <- Sys.time() + (proc.time()[3] - t1) / j * (n_loop - j)
-      cat('\r  Loop ', j, '/', n_loop, ', finish time prediction: ',
-          as.character(round(finish_time)), sep = '')
-    }
-
-  }
-  if (print_progress) cat('\n                             ')
-
-  # If rule = 1, the returned values should be NA
-  # for xout placed out of range of x.
-  if (rule == 1) {
-    is_out_of_range <- mapply(
-      function(x0, xout0) xout0 < min(x0) | xout0 > max(x0),
-      x0 = x_list, xout0 = xout)
-    yout[rowSums(is_out_of_range) > 0] <- NA
-  }
-
-  t2 <- proc.time()[3]
-  if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
 
   list(x = x, y = y, yout = yout)
 
