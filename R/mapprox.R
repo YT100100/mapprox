@@ -121,7 +121,6 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
 
     # Renew the answer
     yout <- yout + y_j * weight_j
-    Sys.sleep(10)
 
     if (!print_progress && verbose && (proc.time()[3] - t1 > 10)) {
       print_progress <- TRUE
@@ -146,9 +145,11 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
     yout[rowSums(is_out_of_range) > 0] <- NA
   }
 
+
   t2 <- proc.time()[3]
   if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
-
+  names(yout) <- NULL
+  dim(yout) <- NULL
   yout
 
 }
@@ -351,7 +352,7 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
   x <- xy$x
   y <- xy$y
 
-  # Stop the process if no data remained after cleaning
+  # Stopping the process if no data remained after cleaning
   if (nrow(x) == 0) stop('No data remained after data cleaning.')
 
   t2 <- proc.time()[3]
@@ -360,21 +361,17 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
 
 
   # Interpolation --------------------------------------------------------------
+  # Removing xout with NA
+  is_na_xout <- rowSums(is.na(xout)) > 0
+  if (all(is_na_xout)) stop('All points of xout contain NA.')
+  xout_nona <- xout[!is_na_xout, , drop = FALSE]
+  yout <- rep(NA, nrow(xout))
 
-  # TODO: ここから別のfunctionにする
-  # TODO: それに伴い、verboseの表示内容も変える
-
-  # TODO: xoutにNAが入っていた場合、それを取り除く
-  # is_na_out <- rowSums(is.na(xout)) > 0
-  # if (all(is_na_out)) stop('All points of xout contain NA.')
-  # yout <- vector(length = nrow(xout))
-  # yout[is_na_out] <- linear_interpolation(
-  #   x, y, xout[is_na_out, , drop = FALSE])
-
-  yout <- if (use_cpp) {
-    linear_interpolation_cpp(x, y, xout, rule, verbose)
+  # Interpolation
+  yout[!is_na_xout] <- if (use_cpp) {
+    linear_interpolation_cpp(x, y, xout_nona, rule, verbose)
   } else {
-    linear_interpolation(x, y, xout, rule, verbose)
+    linear_interpolation(x, y, xout_nona, rule, verbose)
   }
 
   list(x = x, y = y, yout = yout)
