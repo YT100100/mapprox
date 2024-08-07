@@ -62,7 +62,6 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
     pmax(pmin(i, length(x) - 1), 1)
 
   }, x = x_list, vals = xout)
-  # if (verbose) cat('Done. (', round(proc.time() - t0, 2)[3], ' s)\n', sep = '')
 
   # Lengths of grids where data points of xout placed
   region_length <- mapply(

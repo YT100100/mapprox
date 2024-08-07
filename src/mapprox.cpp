@@ -26,6 +26,8 @@ NumericVector linear_interpolation_cpp(List x_r,
   // fetch data size
   int n_ref = x   [0].size();
   int n_out = xout[0].size();
+  Rprintf("n_ref: %i\n", n_ref);
+  Rprintf("n_out: %i\n", n_out);
 
   // check if x and xout have reshaped correctly
   for (int i = 0; i < n_var; i++) {
@@ -59,40 +61,57 @@ NumericVector linear_interpolation_cpp(List x_r,
   }
 
 
-  // Interpolation (1): Preparation --------------------------------------------
+  // Interpolation -------------------------------------------------------------
   auto t1 = std::chrono::system_clock::now();
-  Rprintf("Step 3/4: Preparation...     \n");
+  Rprintf("Step 3/3: Preparation...     \n");
 
-  // When rule = 2, values of  xout is replaced with closest value of x
-  // if they are out of range of x.
-  if (rule == 2) {
+  float xout_i[n_var];
+  float x_i_min, x_i_max, xout_ij;
+  for (int i = 0; i < n_out; i++) {
 
-    float x_i_min, x_i_max, xout_ij;
-    for (int i = 0; i < n_var; i++) {
+    for (int j = 0; j < n_var; j++) xout_i[j] = xout[j][i];
 
-      x_i_min = x_set[i][0];
-      x_i_max = x_set[i][x_set[i].size() - 1];
-
-      for (int j = 0; j < n_out; j++) {
-        xout_ij = xout[i][j];
+    // When rule = 2, values of  xout is replaced with closest value of x
+    // if they are out of range of x.
+    if (rule == 2) {
+      for (int j = 0; j < n_var; j++) {
+      // for (int j = 0; j < 1; j++) {
+        x_i_min = x_set[j][0];
+        x_i_max = x_set[j][x_set[j].size() - 1];
+        xout_ij = xout_i[j];
         xout_ij = (xout_ij > x_i_max)?x_i_max:xout_ij;
         xout_ij = (xout_ij < x_i_min)?x_i_min:xout_ij;
-        xout[i][j] = xout_ij;
+        xout_i[j] = xout_ij;
       }
-
     }
 
     // check if xout have converted correctly
-    Rprintf("Processing of data out of region (rule 2)\n");
-    for (int i = 0; i < n_var; i++) {
-      Rprintf("xout[%i]: ", i);
-      for (int j = 0; j < n_out; j++) {
-        Rprintf("%.1f ", xout[i][j]);
-      }
-      Rprintf("\n");
+    Rprintf("xout[%i] rule2 adj: ", i);
+    for (int j = 0; j < n_var; j++) {
+      Rprintf("%.1f ", xout_i[j]);
     }
+    Rprintf("\n");
+
+    // Where does each data of xout place? Which grid expanded by x?
+    // An element of `smaller_indices` (i_rc in row r and column c) indicate
+    // that the xout[r, c] is between i_rc_th and (i_rc + 1)_th values of x
+    // (x_list[[c]][i_rc + (0:1)]).
+    // smaller_indices <- mapply(function(x, vals) {
+    //
+    //   i <- sapply(vals, function(val) sum(val - x >= 0)) # faster
+    //   // i <- sapply(vals, function(val) which(val - x < 0)[1] - 1) # slower
+    //
+    //   // When rule = 3, xout placed out of the region of x are treated
+    //   // as if they are in the closest grid.
+    //   pmax(pmin(i, length(x) - 1), 1)
+    //
+    // }, x = x_list, vals = xout)
+
 
   }
+
+
+
 
   // 時刻の表示
   // std::time_t now_c = std::chrono::system_clock::to_time_t(t1);
