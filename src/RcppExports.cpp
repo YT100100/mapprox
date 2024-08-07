@@ -10,20 +10,24 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// timesTwo
-int timesTwo(int x);
-RcppExport SEXP _mapprox_timesTwo(SEXP xSEXP) {
+// linear_interpolation_cpp
+NumericVector linear_interpolation_cpp(List x_r, NumericVector y, List xout_r, int rule, bool verbose);
+RcppExport SEXP _mapprox_linear_interpolation_cpp(SEXP x_rSEXP, SEXP ySEXP, SEXP xout_rSEXP, SEXP ruleSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(timesTwo(x));
+    Rcpp::traits::input_parameter< List >::type x_r(x_rSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< List >::type xout_r(xout_rSEXP);
+    Rcpp::traits::input_parameter< int >::type rule(ruleSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(linear_interpolation_cpp(x_r, y, xout_r, rule, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_mapprox_timesTwo", (DL_FUNC) &_mapprox_timesTwo, 1},
+    {"_mapprox_linear_interpolation_cpp", (DL_FUNC) &_mapprox_linear_interpolation_cpp, 5},
     {NULL, NULL, 0}
 };
 

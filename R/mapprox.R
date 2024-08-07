@@ -197,7 +197,7 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
 #' y1 <- c(1:3, 8:10, 7:4)
 #' xout1 <- seq(0, 11, 0.2)
 #' res1_approx <- approx(x1, y1, xout1, method = 'linear', rule = 2)
-#' res1_mapprox <- mapprox(x1, y1, xout1, rule = 2, v=T)
+#' res1_mapprox <- mapprox(x1, y1, xout1, rule = 2)
 #' plot(res1_approx, pch = 16, cex = 0.5, xlab = 'x', ylab = 'y')
 #' points(xout1, res1_mapprox$yout)
 #' points(x1, y1, pch = 16, cex = 2, col = rgb(1, 0, 0, 0.2))
