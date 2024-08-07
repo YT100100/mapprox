@@ -36,7 +36,7 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
   if (verbose) cat('Step 3/4: Preparation...     ')
 
   # Converting x to a list and y to an array
-  x_list <- lapply(x, unique)
+  x_list <- lapply(x, function(x0) sort(unique(x0)))
   y_arr <- tapply(X = y, INDEX = as.list(x), FUN = identity)
   names(dimnames(y_arr)) <- colnames(x)
 

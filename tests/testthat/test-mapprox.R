@@ -48,6 +48,12 @@ test_that('正常な入力で動作するか: 2変量', {
   expect_equal(mapprox(x, y, xout, rule = 2)$yout, yout[, 2])
   expect_equal(mapprox(x, y, xout, rule = 3)$yout, yout[, 3])
 
+  sampleid <- sample(seq(nrow(x)))
+  x_shuf <- x[sampleid, ]
+  y_shuf <- y[sampleid]
+  expect_equal(mapprox(x, y, xout, rule = 3)$yout,
+               mapprox(x_shuf, y_shuf, xout, rule = 3)$yout)
+
 })
 test_that('NAや格子状にないデータを弾けるか', {
 

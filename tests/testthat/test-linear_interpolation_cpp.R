@@ -29,7 +29,7 @@ test_that('正常な入力で動作するか: 2変量', {
 
   f <- function(V1, V2) (V1 - 11.5) ^ 2 + V2 * 5
   x_v1 <- 11:15
-  x <- expand.grid(V1 = x_v1, V2 = 101:103)
+  x <- expand.grid(V1 = rev(x_v1), V2 = 101:103)
   y <- with(x, f(V1, V2))
 
   xout_v1 <- seq(10, 16, 0.5)
