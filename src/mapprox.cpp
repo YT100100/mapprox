@@ -65,8 +65,10 @@ NumericVector linear_interpolation_cpp(List x_r,
   auto t1 = std::chrono::system_clock::now();
   Rprintf("Step 3/3: Preparation...     \n");
 
+
   float xout_i[n_var];
   float x_i_min, x_i_max, xout_ij;
+  int smaller_index[n_var];
   for (int i = 0; i < n_out; i++) {
 
     for (int j = 0; j < n_var; j++) xout_i[j] = xout[j][i];
@@ -86,16 +88,41 @@ NumericVector linear_interpolation_cpp(List x_r,
     }
 
     // check if xout have converted correctly
-    Rprintf("xout[%i] rule2 adj: ", i);
+    Rprintf("xout[%i] rule2adj: ", i);
     for (int j = 0; j < n_var; j++) {
       Rprintf("%.1f ", xout_i[j]);
     }
     Rprintf("\n");
 
     // Where does each data of xout place? Which grid expanded by x?
-    // An element of `smaller_indices` (i_rc in row r and column c) indicate
-    // that the xout[r, c] is between i_rc_th and (i_rc + 1)_th values of x
-    // (x_list[[c]][i_rc + (0:1)]).
+    // An element of `smaller_index` (k) indicate
+    // that the xout_i[j] is between k_th and (k + 1)_th values of x
+    // (x_set[j][k] and x_set[j][k + 1]).
+    for (int j = 0; j < n_var; j++) {
+      int n_val = x_set[j].size();
+      int k = 0;
+      while (true) {
+        if (xout_i[j] < x_set[j][k]) {
+          smaller_index[j] = (k == 0)?0:k - 1;
+          break;
+        }
+        if (k == n_val - 2) {
+          smaller_index[j] = k;
+          break;
+        }
+        k++;
+      }
+    }
+
+    // check
+    Rprintf("smaller index[%i] : ", i);
+    for (int j = 0; j < n_var; j++) {
+      Rprintf("%i ", smaller_index[j]);
+    }
+    Rprintf("\n");
+
+
+
     // smaller_indices <- mapply(function(x, vals) {
     //
     //   i <- sapply(vals, function(val) sum(val - x >= 0)) # faster
