@@ -1,7 +1,7 @@
 Package: mapprox
 Type: Package
 Title: Linear interpolation of gridded data (multivariable approx)
-Version: 0.0.0.9000
+Version: 0.0.1
 Authors@R: person("TODA", "Yusuke", email = "yusuke0320.research@gmail.com", role = c("aut", "cre"))
 Description: This package provides the function mapprox(), 
     an extension of the basic approx() function. 

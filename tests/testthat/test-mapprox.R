@@ -2,6 +2,18 @@ library(mapprox)
 
 arith_seq <- function(a12, n) a12[1] + (a12[2] - a12[1]) * (n - 1)
 
+expect_equal_randcpp <- function(..., element = NULL, expected) {
+
+  if (is.null(element)) {
+    expect_equal(mapprox(..., use_cpp = FALSE), expected)
+    expect_equal(mapprox(..., use_cpp = TRUE), expected)
+  } else {
+    expect_equal(mapprox(..., use_cpp = FALSE)[[element]], expected)
+    expect_equal(mapprox(..., use_cpp = TRUE) [[element]], expected)
+  }
+
+}
+
 test_that('正常な入力で動作するか: 1変量', {
 
   x <- 1:10
@@ -14,12 +26,12 @@ test_that('正常な入力で動作するか: 1変量', {
   res_approx_3[2:1]   <- arith_seq(res_approx_3[4:3], 3:4)
   res_approx_3[22:23] <- arith_seq(res_approx_3[20:21], 3:4)
 
-  expect_equal(mapprox(x, y, xout, rule = 1)$x, as.data.frame(as.matrix(x)))
-  expect_equal(mapprox(x, y, xout, rule = 1)$y, y)
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'x', expected = as.data.frame(as.matrix(x)))
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'y', expected = y)
 
-  expect_equal(mapprox(x, y, xout, rule = 1)$yout, res_approx_1)
-  expect_equal(mapprox(x, y, xout, rule = 2)$yout, res_approx_2)
-  expect_equal(mapprox(x, y, xout, rule = 3)$yout, res_approx_3)
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'yout', expected = res_approx_1)
+  expect_equal_randcpp(x, y, xout, rule = 2, element = 'yout', expected = res_approx_2)
+  expect_equal_randcpp(x, y, xout, rule = 3, element = 'yout', expected = res_approx_3)
 
 })
 test_that('正常な入力で動作するか: 2変量', {
@@ -41,18 +53,20 @@ test_that('正常な入力で動作するか: 2変量', {
   yout[sel, 1] <- NA
   yout[sel, 2] <- approx(x_v1, f(x_v1, 103), xout$V1[sel])$y
 
-  expect_equal(mapprox(x, y, xout, rule = 1)$x, x)
-  expect_equal(mapprox(x, y, xout, rule = 1)$y, y)
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'x', expected = x)
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'y', expected = y)
 
-  expect_equal(mapprox(x, y, xout, rule = 1)$yout, yout[, 1])
-  expect_equal(mapprox(x, y, xout, rule = 2)$yout, yout[, 2])
-  expect_equal(mapprox(x, y, xout, rule = 3)$yout, yout[, 3])
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'yout', expected = yout[, 1])
+  expect_equal_randcpp(x, y, xout, rule = 2, element = 'yout', expected = yout[, 2])
+  expect_equal_randcpp(x, y, xout, rule = 3, element = 'yout', expected = yout[, 3])
 
   sampleid <- sample(seq(nrow(x)))
   x_shuf <- x[sampleid, ]
   y_shuf <- y[sampleid]
   expect_equal(mapprox(x, y, xout, rule = 3)$yout,
                mapprox(x_shuf, y_shuf, xout, rule = 3)$yout)
+  expect_equal(mapprox(x, y, xout, rule = 3, use_cpp = TRUE)$yout,
+               mapprox(x_shuf, y_shuf, xout, rule = 3, use_cpp = TRUE)$yout)
 
 })
 test_that('NAや格子状にないデータを弾けるか', {
@@ -116,7 +130,33 @@ test_that('xが重複している場合、対応するyを平均化できるか'
   # test
   expect_warning(mapprox(x, y, xout, rule = 1),
                  '2 values of x were duplicated')
-  expect_equal(suppressWarnings(mapprox(x, y, xout, rule = 1)$yout), yout)
+
+})
+test_that('不均一な格子点のデータ', {
+
+  f <- function(V1, V2) (V1 - 11.5) ^ 2 + V2 * 5
+  x_v1 <- c(11, 12, 15, 16)
+  x <- expand.grid(V1 = x_v1, V2 = c(101, 101.5, 104))
+  y <- with(x, f(V1, V2))
+
+  xout_v1 <- seq(11, 16, 0.5)
+  xout_v2 <- c(101.2, 103, 104)
+  xout <- expand.grid(V1 = xout_v1, V2 = xout_v2)
+
+  yout <- by(xout, xout$V2, function(df) {
+    approx(x_v1, f(x_v1, unique(df$V2)), df$V1, rule = 2)$y
+  })
+  yout <- matrix(rep(unlist(yout), 3), ncol = 3)
+  sel <- xout$V2 == 104.5
+  yout[sel, 1] <- NA
+  yout[sel, 2] <- approx(x_v1, f(x_v1, 103), xout$V1[sel])$y
+
+  expect_equal(mapprox(x, y, xout, rule = 1)$x, x)
+  expect_equal(mapprox(x, y, xout, rule = 1)$y, y)
+
+  expect_equal(mapprox(x, y, xout, rule = 1)$yout, yout[, 1])
+  expect_equal(mapprox(x, y, xout, rule = 2)$yout, yout[, 2])
+  expect_equal(mapprox(x, y, xout, rule = 3)$yout, yout[, 3])
 
 })
 test_that('使用できるデータが極端に少ない場合にどうなるか', {

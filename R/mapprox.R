@@ -144,7 +144,6 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
     yout[rowSums(is_out_of_range) > 0] <- NA
   }
 
-
   t2 <- proc.time()[3]
   if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
   names(yout) <- NULL
@@ -255,15 +254,6 @@ linear_interpolation <- function(x, y, xout, rule, verbose) {
 #'        col = 3:5, pch = c(3, 15, 16), ncol = 3)
 
 mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
-
-  # Example 1: One variable
-  # x <- 1:10
-  # y <- c(1:3, 8:10, 7:4)
-  # xout <- seq(0, 11, 0.2)
-  # rule <- 2
-  # use_cpp <- FALSE
-  # verbose <- TRUE
-
 
   # Checking arguments ---------------------------------------------------------
   t1 <- proc.time()[3]
