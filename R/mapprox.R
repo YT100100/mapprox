@@ -1,6 +1,7 @@
 #' Main function of mapprox() in R
 #'
-#' \code{mapprox} is an wrapper of \code{linear_interpolation}.
+#' \code{mapprox} is an wrapper of \code{linear_interpolation} and
+#' \code{linear_interpolation_cpp}.
 #'
 #' This is the main function of \code{mapprox(..., use_cpp = FALSE)}.
 #' Provided data are cleaned beforehand in \code{mapprox} and
@@ -257,7 +258,8 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
 
   # Checking arguments ---------------------------------------------------------
   t1 <- proc.time()[3]
-  if (verbose) cat('Step 1/4: Checking inputs... ')
+  n_step <- if (use_cpp) 3 else 4
+  if (verbose) cat('Step 1/', n_step, ': Checking inputs... ', sep = '')
 
   # Checking `x`
   if (!(is.vector(x) || is.matrix(x) || is.data.frame(x))) {
@@ -304,7 +306,7 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
 
 
   # Reshaping data -------------------------------------------------------------
-  if (verbose) cat('Step 2/4: Reshaping data...  ')
+  if (verbose) cat('Step 2/', n_step, ': Reshaping data...  ', sep = '')
 
   # Omitting NA
   is_na_x <- rowSums(is.na(x)) > 0
@@ -357,12 +359,23 @@ mapprox <- function(x, y, xout, rule = 1, use_cpp = FALSE, verbose = FALSE) {
   yout <- rep(NA, nrow(xout))
 
   # Interpolation
-  yout[!is_na_xout] <- if (use_cpp) {
-    linear_interpolation_cpp(x, y, xout_nona, rule, verbose)
+  ord <- do.call(order, as.list(x))
+  x <- x[ord, , drop = FALSE]
+  y <- y[ord]
+  if (use_cpp) {
+
+    if (verbose) cat('Step 3/', n_step, ': Interpolation ...  ', sep = '')
+    yout[!is_na_xout] <- linear_interpolation_cpp(x, y, xout_nona, rule, verbose)
+    t2 <- proc.time()[3]
+    if (verbose) cat(' Done. (', round(t2 - t1, 1), 's)\n', sep = '')
+
   } else {
-    linear_interpolation(x, y, xout_nona, rule, verbose)
+
+    yout[!is_na_xout] <- linear_interpolation(x, y, xout_nona, rule, verbose)
+
   }
 
   list(x = x, y = y, yout = yout)
 
 }
+

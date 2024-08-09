@@ -53,8 +53,13 @@ test_that('正常な入力で動作するか: 2変量', {
   yout[sel, 1] <- NA
   yout[sel, 2] <- approx(x_v1, f(x_v1, 103), xout$V1[sel])$y
 
-  expect_equal_randcpp(x, y, xout, rule = 1, element = 'x', expected = x)
-  expect_equal_randcpp(x, y, xout, rule = 1, element = 'y', expected = y)
+  # res <- mapprox(x, y, xout, rule = 2, use_cpp = TRUE, v=T)
+  # plot(x$V1, y, col = x$V2 - 100, pch = 16, xlim = range(xout$V1))
+  # points(xout$V1, res$yout, col = as.factor(xout$V2))
+
+  ord <- do.call(order, as.list(x))
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'x', expected = x[ord, ])
+  expect_equal_randcpp(x, y, xout, rule = 1, element = 'y', expected = y[ord])
 
   expect_equal_randcpp(x, y, xout, rule = 1, element = 'yout', expected = yout[, 1])
   expect_equal_randcpp(x, y, xout, rule = 2, element = 'yout', expected = yout[, 2])
@@ -137,6 +142,7 @@ test_that('不均一な格子点のデータ', {
   f <- function(V1, V2) (V1 - 11.5) ^ 2 + V2 * 5
   x_v1 <- c(11, 12, 15, 16)
   x <- expand.grid(V1 = x_v1, V2 = c(101, 101.5, 104))
+  x <- x[do.call(order, as.list(x)), ]
   y <- with(x, f(V1, V2))
 
   xout_v1 <- seq(11, 16, 0.5)
