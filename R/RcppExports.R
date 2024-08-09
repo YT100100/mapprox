@@ -13,12 +13,12 @@
 #' and duplicated values are not allowed.
 #' Also, no NA in \code{x}, \code{y}, and \code{xout} is allowed.
 #'
-#' @param x Reference data of explanatory variables.
+#' @param x_r Reference data of explanatory variables.
 #'   This must be a data frame in which elements are all numeric.
 #'   Also, this should be ordered by \code{order} function.
 #' @param y Reference data of a target variable.
 #'   This must be a numeric vector with length \code{nrow(x)}.
-#' @param xout Values of explanatory variables where interpolation is to
+#' @param xout_r Values of explanatory variables where interpolation is to
 #'   take place. This must be a data frame and
 #'   \code{ncol(xout)} must be the same as \code{ncol(x)}.
 #' @param rule A scalar integer determining how interpolation outside the

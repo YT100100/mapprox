@@ -7,8 +7,16 @@
 linear_interpolation_cpp(x_r, y, xout_r, rule, verbose)
 }
 \arguments{
+\item{x_r}{Reference data of explanatory variables.
+This must be a data frame in which elements are all numeric.
+Also, this should be ordered by \code{order} function.}
+
 \item{y}{Reference data of a target variable.
 This must be a numeric vector with length \code{nrow(x)}.}
+
+\item{xout_r}{Values of explanatory variables where interpolation is to
+take place. This must be a data frame and
+\code{ncol(xout)} must be the same as \code{ncol(x)}.}
 
 \item{rule}{A scalar integer determining how interpolation outside the
 given explanatory variables works. This must be eigher
@@ -19,14 +27,6 @@ given as the reference data are returned.
 If \code{rule = 3}, linear extension of the interpolated result is applied.}
 
 \item{verbose}{Logical. Should progress of the process printed?}
-
-\item{x}{Reference data of explanatory variables.
-This must be a data frame in which elements are all numeric.
-Also, this should be ordered by \code{order} function.}
-
-\item{xout}{Values of explanatory variables where interpolation is to
-take place. This must be a data frame and
-\code{ncol(xout)} must be the same as \code{ncol(x)}.}
 }
 \value{
 A numeric vector of interpolated result.
