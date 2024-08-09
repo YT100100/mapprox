@@ -45,7 +45,10 @@ A list with components \code{x}, \code{y}, \code{yout}.
 \description{
 \code{mapprox} is an extension of \code{approx} to deal with multivariable x.
 }
-\examples{
+\seealso{
+[approx()]
+
+#' @examples
 # Example 1. A one-variable case: comparison with approx().
 x1 <- 1:10
 y1 <- c(1:3, 8:10, 7:4)
@@ -108,8 +111,4 @@ points(xout4$V1, res4_2$yout, col = 4, pch = 15)
 points(xout4$V1, res4_3$yout, col = 5, pch = 16)
 legend('bottomright', legend = paste0('rule=', 1:3),
        col = 3:5, pch = c(3, 15, 16), ncol = 3)
-
-}
-\seealso{
-[approx()]
 }
